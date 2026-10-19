@@ -1,179 +1,292 @@
-# LinkPulse API
 
-LinkPulse is a URL management and analytics platform. This repository starts with a
-backend-first MVP using Fastify, TypeScript, PostgreSQL, Prisma, and Redis.
+# 🔗 LinkPulse API
 
-## Project flow
+### Smart URL Shortening & Click Analytics Platform
 
-1. A user authenticates and operates within an authorized workspace.
-2. The user submits a destination URL and link options. The API validates the URL,
-   alias, campaign membership, and redirect rules before saving the link.
-3. The API returns the short URL for sharing.
-4. A visitor requests the alias. The redirect service checks link status, expiration,
-   click limits, and any password gate before selecting a destination. It increments
-   the accepted-redirect counter and enqueues a sanitized event in a Redis Stream;
-   redirects do not wait for analytics persistence.
-5. A separate worker consumes events and persists them idempotently to PostgreSQL.
-   Authenticated workspace members can query stored click and campaign aggregates.
-   Disabled and expired links remain available for reporting.
-6. Workspace members can disable abusive links; redirect checks reject them.
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-API-000000?logo=fastify&logoColor=white)](https://fastify.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Event_Queue-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 
-See [docs/architecture.md](docs/architecture.md) for component responsibilities,
-data relationships, and the staged delivery plan.
+**LinkPulse** is a backend-first URL management and analytics platform that transforms long URLs into short, shareable links while providing secure redirects, link controls, and asynchronous click analytics.
 
-## Images
-<img width="1470" height="829" alt="Screenshot 2026-10-18 at 9 17 41 PM" src="https://github.com/user-attachments/assets/bba65495-ae13-4c67-8bd5-e51216580796" />
-<img width="1456" height="842" alt="Screenshot 2026-10-18 at 9 16 54 PM" src="https://github.com/user-attachments/assets/b81bfc72-1980-42ef-ab8d-63407dafd8fb" />
+> 🚀 Create shorter links. Manage campaigns. Understand engagement.
 
-## Local development
+**🌐 Live Demo:** [Open LinkPulse](https://YOUR-LIVE-URL.com)  
+**💻 GitHub Repository:** [View Source Code](https://github.com/YOUR-USERNAME/YOUR-REPOSITORY)
 
-Requirements: Node.js 22+ and npm. Docker Compose is only needed for persistent
-local development.
+---
 
-### Quick local demo (no database or Redis)
+## 📌 Table of Contents
 
-Enable the local in-memory demo mode in `.env`:
+- [Problem Statement](#-problem-statement)
+- [Our Solution](#-our-solution)
+- [Key Features](#-key-features)
+- [Screenshots](#-screenshots)
+- [Tech Stack](#-tech-stack)
+- [How It Works](#-how-it-works)
+- [Getting Started](#-getting-started)
+- [Environment Variables](#-environment-variables)
+- [API Reference](#-api-reference)
+- [Security & Reliability](#-security--reliability)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [Project Structure](#-project-structure)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-```sh
-cp .env.example .env
-# Set DEMO_MODE=true in .env
-npm install
-npm run dev
+---
+
+## 🎯 Problem Statement
+
+Long URLs are difficult to share, manage, and track. Teams and individuals often lack a centralized solution for controlling link access, setting expiration rules, managing campaigns, and understanding user engagement.
+
+Traditional URL shorteners may also provide limited control over protected links and the reliability of analytics processing.
+
+## 💡 Our Solution
+
+LinkPulse provides a centralized platform for creating and managing short URLs with configurable access rules and analytics.
+
+It combines a high-performance API with PostgreSQL persistence and Redis-powered event processing to keep redirects responsive while click analytics are processed asynchronously.
+
+## ✨ Key Features
+
+| Feature | Description |
+|---|---|
+| 🔗 URL Shortening | Convert long URLs into compact, shareable links. |
+| 🔐 Authentication | Register, log in, and manage workspace access. |
+| 🏢 Workspaces | Organize and manage links within workspaces. |
+| ⏳ Expiration Rules | Set expiration dates and maximum click limits. |
+| 🔒 Password Protection | Restrict access to protected links. |
+| ⚡ Fast Redirects | Validate link status before redirecting visitors. |
+| 📊 Click Analytics | View engagement metrics and link performance. |
+| 🔄 Async Event Processing | Process click events through Redis Streams and a worker. |
+| 🛡️ Input Validation | Validate URLs and reject unsafe destinations. |
+| ♻️ Link Management | Inspect, update, and disable existing links. |
+
+## 🖼️ Screenshots
+
+### LinkPulse Dashboard
+
+![LinkPulse Dashboard](https://github.com/user-attachments/assets/bba65495-ae13-4c67-8bd5-e51216580796)
+
+### Link Management & Analytics
+
+![LinkPulse Analytics](https://github.com/user-attachments/assets/b81bfc72-1980-42ef-ab8d-63407dafd8fb)
+
+---
+
+## 🧰 Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| **Node.js 22+** | JavaScript runtime |
+| **TypeScript** | Type-safe application development |
+| **Fastify** | High-performance API framework |
+| **PostgreSQL** | Persistent relational data storage |
+| **Prisma ORM** | Database access and schema management |
+| **Redis Streams** | Asynchronous click-event processing |
+| **Docker Compose** | Local development infrastructure |
+| **npm** | Package management and scripts |
+
+---
+
+## ⚙️ How It Works
+
+```mermaid
+flowchart TD
+    A[User Creates a Short Link] --> B[Fastify API]
+    B --> C[Validate URL and Link Rules]
+    C --> D[Store Link in PostgreSQL]
+    D --> E[Generate Short URL]
+    E --> F[Visitor Opens Short Link]
+    F --> G{Link Is Valid?}
+    G -- No --> H[Return Appropriate Error]
+    G -- Yes --> I[Redirect to Destination]
+    I --> J[Publish Click Event to Redis]
+    J --> K[Background Worker]
+    K --> L[Persist Analytics in PostgreSQL]
+    L --> M[Workspace Analytics Dashboard]
 ```
 
-Open `http://localhost:3000/` and use guest mode or register/sign in. Link creation,
-redirects, and analytics use the normal API flows, but demo data is held in memory
-and is cleared whenever the server restarts. The click worker is not used in this
-mode. Demo mode is rejected when `NODE_ENV=production`; do not use it for deployment
-or real user data.
+**Architecture highlights:**
+- Redirect handling and click-event processing are separated.
+- Redis Streams decouple analytics ingestion from redirect requests.
+- PostgreSQL stores links, workspaces, and persisted analytics.
+- The worker supports retries and dead-letter handling for failed events.
 
-### Persistent local development
+---
 
-For data that survives API restarts, keep `DEMO_MODE=false`, configure
-`DATABASE_URL` and `REDIS_URL` in `.env`, and start the supporting services:
+## 🚀 Getting Started
 
-```sh
+### Prerequisites
+
+Make sure you have the following installed:
+
+- [Node.js 22 or later](https://nodejs.org/)
+- npm
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) for persistent local development
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
+cd YOUR-REPOSITORY
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+
+Create a local `.env` file using the variables required by the project.
+
+```bash
 cp .env.example .env
+```
+
+If `.env.example` is not present, create `.env` manually using the environment-variable documentation below and the project's configuration.
+
+**Never commit your actual `.env` file or secrets to GitHub.**
+
+### 4. Start PostgreSQL and Redis
+
+For persistent local development, start the services using the repository's Docker Compose configuration:
+
+```bash
 docker compose up -d
-npm install
+```
+
+Ensure the database and Redis URLs in `.env` match your local configuration.
+
+### 5. Generate the Prisma Client
+
+```bash
 npm run db:generate
+```
+
+### 6. Apply Database Migrations
+
+```bash
 npm run db:deploy
+```
+
+### 7. Start the API Server
+
+```bash
 npm run dev
 ```
 
-The web app is served by the API at `http://localhost:3000/`. It uses same-origin
-requests and needs no browser API key or separate frontend environment variable.
-Continue as a guest to create links and view persisted click analytics immediately,
-or sign in/register to use a saved account. Guest workspaces are server-backed and
-their workspace, links, and analytics are automatically deleted after seven days.
-The login screen loads the supplied Rive animation as a local asset; `npm run dev`
-and `npm run build` generate the bundled browser script and copy the Rive WebAssembly
-runtime into `public/assets/`.
+The API and web application are served at:
 
-Password recovery is available when SMTP is configured in `.env` using
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`.
-Reset tokens are stored only as SHA-256 hashes, expire after 30 minutes, and can be
-used once. Password-reset requests do not reveal whether an email is registered.
+**http://localhost:3000**
 
-Run the click-event worker in another terminal:
+### 8. Start the Analytics Worker
 
-```sh
+In a separate terminal:
+
+```bash
 npm run dev:worker
 ```
 
-For production, deploy `npm run start` and `npm run worker` as separate processes.
-Configure Redis persistence/replication and monitor the click stream and
-`linkpulse:click-events:dead` dead-letter stream. Queue publication failures are
-logged; the visitor still receives the accepted redirect, so analytics for that
-request may be lost if Redis is unavailable.
+The worker processes queued click events and persists analytics.
 
-The liveness endpoint is `GET /health/live`; readiness is `GET /health/ready`.
-For a Vercel frontend with a Render API, PostgreSQL, Redis, and worker, see
-[docs/deployment.md](docs/deployment.md). The repository includes a Render Blueprint
-and Vercel project configuration; review provider plans and set the deployment
-origins before confirming hosted resources.
+> **Quick demo:** If supported by your configuration, set `DEMO_MODE=true` to use in-memory demo mode. This mode is intended for demonstration, not production. Persistent storage is required for durable data.
 
-## Identity and workspaces
+---
 
-- `POST /auth/guest` creates a server-backed guest identity and OWNER workspace.
-  Its bearer token lasts seven days; the workspace and its links are removed by the
-  worker after expiry. Guest workspaces use the same link and analytics endpoints as
-  registered accounts, but cannot create additional workspaces.
-- `POST /auth/register` creates a normalized email account, a personal workspace,
-  and an OWNER membership atomically. Passwords must be 12–128 characters.
-- `POST /auth/login` returns a signed 15-minute Bearer access token.
-- `POST /auth/password-reset/request` emails a 30-minute, single-use reset link
-  when SMTP is configured. It returns the same response whether or not the email
-  exists; `POST /auth/password-reset/confirm` accepts the token and a new password.
-- Password-reset tokens are random, stored only as SHA-256 hashes, and consumed
-  atomically with the password update. Sessions issued before a reset expire on
-  their normal 15-minute token schedule.
-- `GET /auth/me`, `GET /workspaces`, and `POST /workspaces` require that token.
-- Register/login are limited to five requests per IP per minute; guest workspace
-  creation is limited to three per IP per hour. The API uses Redis for shared
-  rate-limit state across instances.
+## 🔑 Environment Variables
 
-The supplied Supabase API keys are not used by this architecture: the API connects
-directly to PostgreSQL through `DATABASE_URL` and uses Redis through `REDIS_URL`.
-Never put database, Redis, or service-role credentials in frontend files or tracked
-configuration. A PostgreSQL password by itself is not a complete connection URL;
-configure the full host/database/SSL URL in the deployment secret store.
+Configure the variables required by your deployment. Exact names and defaults should match the project's environment configuration.
 
-Use the reusable workspace membership and role pre-handler for workspace-scoped
-routes; never trust a workspace ID supplied by a caller without checking membership.
-See [docs/architecture.md](docs/architecture.md) for implementation boundaries.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `DEMO_MODE` | Enables the in-memory demo mode when supported |
+| SMTP configuration | Email delivery for password-reset requests |
 
-## Link lifecycle
+Keep all credentials and secrets private. Set production values through your hosting provider's environment-variable settings.
 
-Authenticated workspace members can create and manage links:
+---
 
-- `POST /workspaces/:workspaceId/links` — create a link, optionally setting `alias`,
-  `campaignId`, `expiresAt`, `maxClicks`, and `password`.
-- `GET /workspaces/:workspaceId/links?limit=50` and
-  `GET /workspaces/:workspaceId/links/:linkId` — list or retrieve links in that
-  workspace.
-- `PATCH /workspaces/:workspaceId/links/:linkId` — update destination or rules;
-  `password: null`, `expiresAt: null`, and `maxClicks: null` clear those settings.
-- `POST /workspaces/:workspaceId/links/:linkId/disable` — disable a link.
-- `GET /:alias` — public 302 redirect after the link is accepted. Password-protected
-  links require the `x-link-password` header. Missing and invalid passwords return
-  401 and 403 without consuming a click. Disabled, expired, and exhausted links return
-  410; unknown aliases return 404.
+## 📡 API Reference
 
-Destinations are restricted to absolute HTTP(S) URLs without credentials, control
-characters, local hostnames, or non-public IP addresses. Custom aliases are globally
-unique. Link creation is limited to 30 requests per IP per minute using Redis when
-configured. Redirect click caps are enforced by a conditional database update, so
-concurrent requests cannot exceed the configured maximum. Passwords are stored only
-as scrypt hashes and are redacted from request logs.
+All endpoints should be called using the deployed API base URL or your local development URL.
 
-## Click tracking and analytics
+### Authentication
 
-- The API writes accepted redirects to the `linkpulse:click-events` Redis Stream.
-  The event has a UUID used as the PostgreSQL primary key, so worker redelivery is
-  idempotent. Redis consumer groups retain unacknowledged events and retry them after
-  the visibility timeout; after five failed deliveries an event is moved to
-  `linkpulse:click-events:dead`.
-- The worker runs with bounded concurrency (10 by default), logs successful writes,
-  retries, and dead-letter events, and prunes events older than
-  `CLICK_EVENT_RETENTION_DAYS` (90 by default; valid range 1–3650 days).
-- The collector stores no raw IP and does not trust forwarded country headers.
-  Referrers are reduced to their HTTP(S) origin; user agents are stripped of control
-  characters and truncated to 512 characters. Device/browser categories and a known
-  bot flag are derived from that sanitized user agent.
-- Every successful redirect, including detected bots, consumes the link's existing
-  click counter and is eligible for event recording. Analytics totals exclude events
-  marked as bots. Analytics includes inactive links and uses a half-open time range
-  (`from` inclusive, `to` exclusive).
-- `GET /workspaces/:workspaceId/analytics/overview?from=<ISO>&to=<ISO>&limit=10`
-  returns daily counts, top links, campaign totals, and total workspace links.
-  `GET /workspaces/:workspaceId/analytics/links?from=<ISO>&to=<ISO>&limit=50&offset=0`
-  provides bounded link pagination. Dates default to the last 30 days; ranges are
-  limited to 366 days and limits to 50.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/auth/guest` | Create a guest session |
+| `POST` | `/auth/register` | Register an account |
+| `POST` | `/auth/login` | Authenticate a user |
+| `GET` | `/auth/me` | Get the current user |
+| `POST` | `/auth/password-reset/request` | Request a password reset |
+| `POST` | `/auth/password-reset/confirm` | Confirm a password reset |
 
-## Validation
+### Workspaces
 
-```sh
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/workspaces` | List accessible workspaces |
+| `POST` | `/workspaces` | Create a workspace |
+
+### Link Management
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/workspaces/:workspaceId/links` | Create a short link |
+| `GET` | `/workspaces/:workspaceId/links` | List workspace links |
+| `GET` | `/workspaces/:workspaceId/links/:linkId` | Get link details |
+| `PATCH` | `/workspaces/:workspaceId/links/:linkId` | Update a link |
+| `POST` | `/workspaces/:workspaceId/links/:linkId/disable` | Disable a link |
+| `GET` | `/:alias` | Redirect through a short link |
+
+Protected links use the `x-link-password` header to provide the link password.
+
+### Analytics
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/workspaces/:workspaceId/analytics/overview` | Retrieve workspace analytics |
+| `GET` | `/workspaces/:workspaceId/analytics/links` | Retrieve per-link analytics |
+
+Analytics endpoints support date-range filters. Refer to the project's API implementation for accepted parameters and response schemas.
+
+### Health Checks
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health/live` | Check whether the API process is alive |
+| `GET` | `/health/ready` | Check service readiness |
+
+---
+
+## 🛡️ Security & Reliability
+
+- Validates destination URLs and rejects unsafe destinations.
+- Enforces authentication and workspace access controls.
+- Supports expiring links, click limits, and password-protected redirects.
+- Hashes stored link passwords and password-reset tokens.
+- Applies rate limits to sensitive endpoints.
+- Redacts sensitive password data from logs.
+- Avoids storing raw visitor IP addresses in click analytics.
+- Uses asynchronous event processing with retries and dead-letter handling.
+
+**Operational note:** If Redis is unavailable, a redirect may still succeed while its analytics event is lost. Configure and monitor infrastructure according to your reliability requirements.
+
+---
+
+## 🧪 Testing & Validation
+
+Run the following commands as applicable to the repository:
+
+```bash
 npm test
 npm run build
 npm run db:generate
@@ -181,3 +294,91 @@ npx prisma validate
 npm audit
 git diff --check
 ```
+
+Resolve failing tests, build errors, dependency vulnerabilities, and formatting issues before submitting.
+
+---
+
+## ☁️ Deployment
+
+Deploy the application using a supported hosting provider.
+
+Typical deployment components include:
+
+- **API:** Render or another Node.js-compatible hosting provider
+- **Database:** A managed PostgreSQL instance
+- **Redis:** A compatible managed Redis service
+- **Worker:** A separate background worker process
+- **Frontend:** Vercel, if deployed separately
+
+For deployment details, see:
+
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/deployment.md`](docs/deployment.md)
+
+### Before Submitting
+
+- [ ] Replace the live demo placeholder with the actual deployed URL.
+- [ ] Add the public GitHub repository URL.
+- [ ] Verify that the deployed application is accessible.
+- [ ] Configure production environment variables securely.
+- [ ] Confirm the API, database, Redis, and worker are configured correctly.
+- [ ] Ensure screenshots accurately represent the project.
+
+**Important:** Do not submit a `localhost` URL as your live project link.
+
+---
+
+## 📁 Project Structure
+
+```text
+.
+├── docs/
+│   ├── architecture.md
+│   └── deployment.md
+├── prisma/
+├── src/
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+*The structure above is illustrative. Adjust it to match the actual repository.*
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Make your changes and run the relevant tests.
+4. Commit with a descriptive message.
+5. Open a pull request.
+
+Examples of meaningful commit messages:
+
+```text
+feat: add link expiration
+fix: validate redirect destinations
+docs: improve deployment instructions
+test: cover password-protected links
+```
+
+For team submissions, each member should commit using their own GitHub account to make contributions transparent.
+
+## 📄 License
+
+Add your project's actual license here. If the repository includes a `LICENSE` file, link to it rather than claiming a license that has not been selected.
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ @Pantkarik,@nowordsyours,Karanjeet Hingham</strong>
+  <br />
+  <sub>LinkPulse — Short links. Smarter analytics.</sub>
+</p>
